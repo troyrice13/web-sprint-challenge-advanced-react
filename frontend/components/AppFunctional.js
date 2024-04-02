@@ -18,6 +18,10 @@ const [index, setIndex] = useState(initialIndex)
   function getXY() {
     // It it not necessary to have a state to track the coordinates.
     // It's enough to know what index the "B" is at, to be able to calculate them.
+    return {
+      x: (index % 3) + 1,
+      y: Math.floor(index / 3) + 1,
+    };
   }
 
   function getXYMessage() {
@@ -38,72 +42,87 @@ const [index, setIndex] = useState(initialIndex)
     // This helper takes a direction ("left", "up", etc) and calculates what the next index
     // of the "B" would be. If the move is impossible because we are at the edge of the grid,
     // this helper should return the current index unchanged.
-const gridSize = 3;
-const maxIndex = gridSize * gridSize - 1;
-const currentRow = Math.floor(index / gridSize);
-const currentColumn = index % gridSize;
+    const gridSize = 3;
+    const currentRow = Math.floor(index / gridSize);
+    const currentColumn = index % gridSize;
 
-let newIndex = index
+    let newIndex = index;
+    let canMove = true;
 
-    if (direction === 'left' && currentColumn > 0) {
-      newIndex = index - 1
-    } else if (direction === 'right' && currentColumn < gridSize - 1) {
-      newIndex = index + 1
-    } else if (direction === 'up' && currentRow > 0){
-      newIndex = index - gridSize
-    }
-    else if (direction === 'down' && currentRow < gridSize - 1){
-      newIndex = index + gridSize
+    if (direction === 'left') {
+      if (currentColumn > 0) newIndex = index - 1;
+      else canMove = false;
+    } else if (direction === 'right') {
+      if (currentColumn < gridSize - 1) newIndex = index + 1;
+      else canMove = false;
+    } else if (direction === 'up') {
+      if (currentRow > 0) newIndex = index - gridSize;
+      else canMove = false;
+    } else if (direction === 'down') {
+      if (currentRow < gridSize - 1) newIndex = index + gridSize;
+      else canMove = false;
     }
 
-    if (newIndex >= 0 && newIndex <= maxIndex){
-      setIndex(newIndex)
-    }
+    return { newIndex, canMove };
   }
 
   function move(direction) {
     // This event handler can use the helper above to obtain a new index for the "B",
     // and change any states accordingly.
-    getNextIndex(direction);
-
-    setSteps(steps => steps + 1)
+    const { newIndex, canMove } = getNextIndex(direction);
+    if (canMove) {
+      setIndex(newIndex);
+      setSteps(prevSteps => prevSteps + 1);
+      setMessage(initialMessage);
+    } else {
+      setMessage(`You can't go ${direction}`);
+    }
   }
 
   function onChange(evt) {
-    // You will need this to update the value of the input.
     setEmail(evt.target.value)
   }
 
   function onSubmit(evt) {
-    // Use a POST request to send a payload to the server.
     evt.preventDefault();
-
-    const x = (index % 3) + 1;
-    const y = Math.floor(index / 3) + 1;
-
+  
+    if (!email.trim()) {
+      setMessage("Ouch: email is required");
+      return;
+    }
+  
+    const { x, y } = getXY();
+  
     const payload = {
       x,
       y,
       steps,
-      email
+      email,
     };
-
+  
     axios.post('http://localhost:9000/api/result', payload)
       .then(res => {
-        console.log('Success:', res.data)
-        setMessage('Success!')
+        setMessage(res.data.message);
+        setEmail(initialEmail);
       })
       .catch(err => {
-        console.error('Error:', err)
-        setMessage('An error occured. Please try again.')
-      })
+        if (err.response) {
+          setMessage(err.response.data.message || 'An error occurred. Please try again.');
+        } else {
+          setMessage('An error occurred. Please try again.');
+        }
+      });
   }
+  
+  
+  
+
 
   return (
-    <div id="wrapper" className="functional {props.className}">
+    <div id="wrapper" className={`functional ${props.className}`}>
       <div className="info">
-        <h3 id="coordinates">Coordinates (2, 2)</h3>
-        <h3 id="steps">You moved {steps} times</h3>
+        <h3 id="coordinates">Coordinates ({getXY().x}, {getXY().y})</h3>
+        <h3 id="steps">You moved {steps} {steps === 1 ? 'time': 'times'}</h3>
       </div>
       <div id="grid">
         {
@@ -115,7 +134,7 @@ let newIndex = index
         }
       </div>
       <div className="info">
-        <h3 id="message"></h3>
+      <h3 id="message">{message}</h3>
       </div>
       <div id="keypad">
         <button onClick={() => move('left')} id="left">LEFT</button>
@@ -126,8 +145,8 @@ let newIndex = index
       </div>
       <form onSubmit={onSubmit}>
         <input id="email" type="email" placeholder="type email" value={email} onChange={onChange}></input>
-        <input id="submit" type="submit"></input>
+        <button type="submit" id='submit' >Submit</button>
       </form>
     </div>
-  )
+  );
 }
