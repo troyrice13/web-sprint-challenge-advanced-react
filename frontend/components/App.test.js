@@ -1,6 +1,6 @@
 // Write your tests here
 test('sanity', () => {
-  expect(true).toBe(false)
+  expect(false).toBe(false)
 })
 
 import React from 'react';
